@@ -6,11 +6,13 @@ license: MIT
 
 # Refactor
 
+> **Read this entire file before refactoring.** It is ~580 lines. The mandatory response structure ("Output Format") and the per-language idiom notes appear in the first third of the file, but the full smell catalog, worked examples, and reference-file pointers continue to the end. If your file-reading tool loads files in chunks, continue past the first chunk — do not stop early.
+
 ## Overview
 
 Improve code structure and readability **without changing external behavior**. Refactoring is gradual evolution, not revolution. Use this for improving existing code, not rewriting from scratch.
 
-This skill is built on **language-agnostic principles** — the smells, fixes, and process apply to every language, and the code examples use pseudocode-like notation so they translate directly. On top of that foundation it carries **dedicated idiom notes** for a broad set of languages, databases, and frameworks: how you create a value object, enforce types, or run tests in each. The per-language mechanics are summarized in the notes at the bottom and in `references/language-notes.md`. Framework-specific smells (React, React Native, Angular, Node.js, Spring Boot, .NET) live in `references/framework-notes.md`, loaded only when a framework request comes in.
+This skill is built on **language-agnostic principles** — the smells, fixes, and process apply to every language, and the code examples use pseudocode-like notation so they translate directly. On top of that foundation it carries **dedicated idiom notes** for a broad set of languages, databases, and frameworks: how you create a value object, enforce types, or run tests in each. The per-language mechanics are summarized in the "Per-Language Quick Notes" section below and detailed in `references/language-notes.md`. Framework-specific smells (React, React Native, Angular, Node.js, Spring Boot, .NET) live in `references/framework-notes.md`, loaded only when a framework request comes in.
 
 ## Enterprise Usage
 
@@ -37,6 +39,61 @@ This is a shared, company-wide skill. A few standing rules for safe team use:
 3. Apply the matching fix in small steps, re-running tests after each.
 4. Use the per-language notes for syntax/idiom specifics.
 5. Verify against the checklist.
+6. Present the result using the fixed structure in "Output Format" (immediately below).
+
+---
+
+## Output Format
+
+Every refactoring response MUST follow this exact five-part structure, in this order. Do not omit a section; if one does not apply, write "None" under it rather than dropping it.
+
+**1. Code Analysis (before refactoring)** — what the code currently does, and the specific smells found with their locations (e.g. "Long method — `processOrder`, 180 lines"; "Magic number — `0.1` in `applyDiscount`"). This is diagnosis only — do not introduce fixes here.
+
+**2. Refactoring Summary** — one or two sentences stating what was changed and why.
+
+**3. Before vs After (key differences)** — the meaningful changes shown as focused before/after snippets, highlighting only what changed rather than restating unchanged code. The **complete refactored code then follows in a fenced block** with the correct language tag (one labeled block per file for multi-file changes), so nothing the developer needs to apply is hidden.
+
+**4. Techniques & Impact** — each refactoring applied, named by its standard operation (e.g. "Extract Method", "Introduce Parameter Object", "Constructor injection", "Replace Nested Conditional with Guard Clauses"), paired with its concrete benefit (what it improves and why it matters).
+
+**5. Verification & Risks** — the test situation before changes (existing tests found / characterization tests added / **none exist → explicit warning that the refactor is unverified and tests should be added first**), how behavior was confirmed unchanged (tests pass / characterization diff clean / manual reasoning), and anything a reviewer must check by hand — public-API or cross-team impact, and any further refactoring deliberately deferred.
+
+Rules for the template:
+- Never mix a behavior change into a refactoring response. If a bug fix or feature is in scope, stop and flag it under Verification & Risks as a separate task — do not silently bundle it in.
+- Keep each section tight and scannable — this is a review aid, not an essay. The refactored code is the centerpiece; the prose around it should be brief.
+- If the request is too large for one safe step, cover only the first unit and list the remaining units under Verification & Risks, rather than attempting everything at once.
+
+---
+
+## Per-Language Quick Notes
+
+Mechanics differ by language; the refactorings don't. Highlights here; full details in `references/language-notes.md`.
+
+- **Python** — type hints + mypy/pyright for type safety; `@dataclass`/`NamedTuple` for parameter objects; `enum.Enum` for type codes; `pytest` + snapshot/`approvaltests` for characterization tests; `vulture`/`ruff` for dead code.
+- **JavaScript / TypeScript** — prefer TS for type safety (unions, `interface`, generics, `strictNullChecks`); object params for long lists; jest/vitest snapshots for characterization; `ts-prune`/ESLint for dead code.
+- **Java** — `record` for parameter objects/value types; `enum` for type codes; interfaces + strategy; JUnit + ApprovalTests; IDE inspections for dead code.
+- **C#** — `record`/`readonly struct` for value types; `enum`; pattern matching to flatten conditionals; xUnit/NUnit + ApprovalTests.
+- **Go** — small interfaces for strategy; structs for parameter objects; explicit error returns instead of deep nesting; golden files for characterization; `deadcode`/`staticcheck`.
+- **Rust** — `enum` + `match` (often replaces strategy outright); `Result`/`Option` for control flow; newtypes for primitive obsession; `insta` for snapshot tests; `cargo clippy`.
+- **Ruby** — Plain Old Ruby Objects per responsibility; keyword args / value objects for long params; Sorbet/RBS for gradual typing; `rspec` snapshots.
+- **PHP** — typed properties, enums (8.1+), readonly classes for value objects; PHPUnit + snapshot tests.
+- **C++** — `enum class`, strong typedefs/value classes; `std::variant` + `std::visit` for strategy-like dispatch; ApprovalTests.cpp; clang-tidy for smells.
+- **Kotlin / Swift** — `data class`/`struct` for parameter objects; sealed classes/enums + `when`/`switch` for polymorphic dispatch; `Result` for control flow.
+- **Groovy** — `@Immutable`/`@Canonical` for value objects; closures as strategies; `@CompileStatic` for gradual typing; Spock + CodeNarc.
+- **Perl** — `use strict; use warnings`; extract subs; `use constant`/`Readonly` for magic values; hash of coderefs for dispatch; Perl::Critic + Test::More.
+- **Shell (Bash/POSIX)** — `set -euo pipefail`; extract functions; quote variables; `readonly` constants; shellcheck + bats.
+- **PowerShell** — functions with `[CmdletBinding()]` + typed `param()`; approved Verb-Noun names; splatting for long params; PSScriptAnalyzer + Pester.
+- **HTML / CSS** — extract repeated markup into components/partials; semantic elements over div soup; CSS custom properties for repeated values; BEM/utility naming; remove dead CSS (PurgeCSS); verify with visual-regression tests, not unit tests.
+- **Databases** — *procedural* (PL/SQL, T-SQL, PL/pgSQL): extract procedures/CTEs, replace row-by-row cursors with set-based statements, break up giant procs, guard clauses, test with utPLSQL/tSQLt/pgTAP. *Declarative queries* (SQL, MongoDB MQL, CQL, Cypher): readability and structure only — name CTEs/pipeline stages, push filters early, de-duplicate fragments, parameterize literals; verify the result set is unchanged. See `references/language-notes.md`.
+
+## Framework-Specific Refactoring
+
+Frameworks add their own smells on top of the base language. The agent loads `references/framework-notes.md` only when a framework request comes in. Highlights:
+
+- **React / React Native** — extract child components and **custom hooks** to kill duplication; replace prop drilling with Context; split overloaded `useEffect`s; compute derived values in render instead of storing them. RN adds: extract `StyleSheet`, split `.ios`/`.android` files, memoize list rows.
+- **Angular** — move logic out of components into injectable **services**; replace manual `subscribe()` with the **async pipe** and RxJS operators; lift shared state into services/stores; `OnPush`/Signals for change detection; strategy via DI tokens.
+- **Node.js** — convert callback hell to `async/await`; split fat route handlers into **handler → service → repository**; keep logic out of `req`/`res` so it's testable; centralize error handling.
+- **Spring Boot** — thin controllers, logic in `@Service`; **constructor injection** over field injection; `@ConfigurationProperties` typed config; strategy beans instead of type-switches.
+- **.NET / ASP.NET Core** — thin controllers with DI; typed `IOptions<T>` config; `record` DTOs; cross-cutting concerns in middleware; extract inline minimal-API handlers.
 
 ---
 
@@ -512,39 +569,6 @@ See `references/design-patterns.md` for before/after examples of each in multipl
 | Introduce Null Object | Remove repetitive null checks |
 | Replace Type Code with Class/Enum | Strong typing for categories |
 | Replace Inheritance with Delegation | Composition over inheritance |
-
----
-
-## Per-Language Quick Notes
-
-Mechanics differ by language; the refactorings don't. Highlights below; full details in `references/language-notes.md`.
-
-- **Python** — type hints + mypy/pyright for type safety; `@dataclass`/`NamedTuple` for parameter objects; `enum.Enum` for type codes; `pytest` + snapshot/`approvaltests` for characterization tests; `vulture`/`ruff` for dead code.
-- **JavaScript / TypeScript** — prefer TS for type safety (unions, `interface`, generics, `strictNullChecks`); object params for long lists; jest/vitest snapshots for characterization; `ts-prune`/ESLint for dead code.
-- **Java** — `record` for parameter objects/value types; `enum` for type codes; interfaces + strategy; JUnit + ApprovalTests; IDE inspections for dead code.
-- **C#** — `record`/`readonly struct` for value types; `enum`; pattern matching to flatten conditionals; xUnit/NUnit + ApprovalTests.
-- **Go** — small interfaces for strategy; structs for parameter objects; explicit error returns instead of deep nesting; golden files for characterization; `deadcode`/`staticcheck`.
-- **Rust** — `enum` + `match` (often replaces strategy outright); `Result`/`Option` for control flow; newtypes for primitive obsession; `insta` for snapshot tests; `cargo clippy`.
-- **Ruby** — Plain Old Ruby Objects per responsibility; keyword args / value objects for long params; Sorbet/RBS for gradual typing; `rspec` snapshots.
-- **PHP** — typed properties, enums (8.1+), readonly classes for value objects; PHPUnit + snapshot tests.
-- **C++** — `enum class`, strong typedefs/value classes; `std::variant` + `std::visit` for strategy-like dispatch; ApprovalTests.cpp; clang-tidy for smells.
-- **Kotlin / Swift** — `data class`/`struct` for parameter objects; sealed classes/enums + `when`/`switch` for polymorphic dispatch; `Result` for control flow.
-- **Groovy** — `@Immutable`/`@Canonical` for value objects; closures as strategies; `@CompileStatic` for gradual typing; Spock + CodeNarc.
-- **Perl** — `use strict; use warnings`; extract subs; `use constant`/`Readonly` for magic values; hash of coderefs for dispatch; Perl::Critic + Test::More.
-- **Shell (Bash/POSIX)** — `set -euo pipefail`; extract functions; quote variables; `readonly` constants; shellcheck + bats.
-- **PowerShell** — functions with `[CmdletBinding()]` + typed `param()`; approved Verb-Noun names; splatting for long params; PSScriptAnalyzer + Pester.
-- **HTML / CSS** — extract repeated markup into components/partials; semantic elements over div soup; CSS custom properties for repeated values; BEM/utility naming; remove dead CSS (PurgeCSS); verify with visual-regression tests, not unit tests.
-- **Databases** — *procedural* (PL/SQL, T-SQL, PL/pgSQL): extract procedures/CTEs, replace row-by-row cursors with set-based statements, break up giant procs, guard clauses, test with utPLSQL/tSQLt/pgTAP. *Declarative queries* (SQL, MongoDB MQL, CQL, Cypher): readability and structure only — name CTEs/pipeline stages, push filters early, de-duplicate fragments, parameterize literals; verify the result set is unchanged. See `references/language-notes.md`.
-
-## Framework-Specific Refactoring
-
-Frameworks add their own smells on top of the base language. The agent loads `references/framework-notes.md` only when a framework request comes in. Highlights:
-
-- **React / React Native** — extract child components and **custom hooks** to kill duplication; replace prop drilling with Context; split overloaded `useEffect`s; compute derived values in render instead of storing them. RN adds: extract `StyleSheet`, split `.ios`/`.android` files, memoize list rows.
-- **Angular** — move logic out of components into injectable **services**; replace manual `subscribe()` with the **async pipe** and RxJS operators; lift shared state into services/stores; `OnPush`/Signals for change detection; strategy via DI tokens.
-- **Node.js** — convert callback hell to `async/await`; split fat route handlers into **handler → service → repository**; keep logic out of `req`/`res` so it's testable; centralize error handling.
-- **Spring Boot** — thin controllers, logic in `@Service`; **constructor injection** over field injection; `@ConfigurationProperties` typed config; strategy beans instead of type-switches.
-- **.NET / ASP.NET Core** — thin controllers with DI; typed `IOptions<T>` config; `record` DTOs; cross-cutting concerns in middleware; extract inline minimal-API handlers.
 
 ---
 
