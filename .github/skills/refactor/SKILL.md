@@ -6,7 +6,7 @@ license: MIT
 
 # Refactor
 
-> **Read this entire file before refactoring.** It is ~580 lines. The mandatory response structure ("Output Format") and the per-language idiom notes appear in the first third of the file, but the full smell catalog, worked examples, and reference-file pointers continue to the end. If your file-reading tool loads files in chunks, continue past the first chunk — do not stop early.
+> **Read this entire file before refactoring.** It is ~480 lines. The mandatory response structure ("Output Format") and the per-language idiom notes appear near the top, but the full smell catalog, examples, design-pattern guidance, and reference-file pointers continue to the end. If your file-reading tool loads files in chunks, continue past the first chunk — do not stop early.
 
 ## Overview
 
@@ -381,126 +381,29 @@ class OrderProcessor:
 
 ## Worked Example: Extract Method
 
-```
-# BEFORE: one long reporting function
-function printReport(users):
-    print("USER REPORT"); print("============"); print("")
-    print("Total users: " + len(users)); print("")
-    print("ACTIVE USERS"); print("------------")
-    active = filter(users, u -> u.isActive)
-    for u in active: print("- " + u.name + " (" + u.email + ")")
-    print(""); print("Active: " + len(active)); print("")
-    print("INACTIVE USERS"); print("--------------")
-    inactive = filter(users, u -> not u.isActive)
-    for u in inactive: print("- " + u.name + " (" + u.email + ")")
-    print(""); print("Inactive: " + len(inactive))
-
-# AFTER: small, named, reusable pieces
-function printReport(users):
-    printHeader("USER REPORT")
-    print("Total users: " + len(users) + "\n")
-    printUserSection("ACTIVE",   filter(users, u -> u.isActive))
-    printUserSection("INACTIVE", filter(users, u -> not u.isActive))
-
-function printHeader(title):
-    print(title); print(repeat("=", len(title))); print("")
-
-function printUserSection(label, users):
-    print(label + " USERS"); print(repeat("-", len(label) + 6))
-    for u in users: print("- " + u.name + " (" + u.email + ")")
-    print(""); print(label + ": " + len(users)); print("")
-```
+The most common refactoring: when a long function does several things (e.g. a report builder that prints a header, then an active-users section, then an inactive-users section), pull each cohesive block into its own small, named, reusable function (`printHeader`, `printUserSection`), leaving the parent function as a short, readable sequence of calls. Each extracted piece does one thing and can be tested and reused independently. See the per-language notes for the idiomatic way to extract in each language.
 
 ---
 
 ## Introducing Type Safety
 
-Where a language supports it, replace loosely-typed values with explicit types and constrained domains. This turns whole classes of bugs into compile-time (or lint-time) errors.
+Where a language supports it, replace loosely-typed values with explicit types and constrained domains — this turns whole classes of bugs into compile-time (or lint-time) errors. Replace stringly-typed inputs (e.g. a `membership` string driving discount logic) with a constrained type (union/enum), return a structured result type instead of a bare number, and validate at boundaries.
 
-```
-# BEFORE: untyped, behavior depends on stringly-typed inputs
-function calculateDiscount(user, total, membership, date):
-    if membership == "gold" and dayOfWeek(date) == FRIDAY: return total * 0.25
-    if membership == "gold": return total * 0.2
-    return total * 0.1
-
-# AFTER: constrained types + a structured result
-type Membership = one_of("bronze", "silver", "gold")
-
-type DiscountResult = { original, discount, final, rate }
-
-function calculateDiscount(user, total, date = now()) -> DiscountResult:
-    if total < 0: raise Error("Total cannot be negative")
-    rate = 0.1                                   # default: bronze
-    if user.membership == "gold" and dayOfWeek(date) == FRIDAY: rate = 0.25
-    elif user.membership == "gold":   rate = 0.2
-    elif user.membership == "silver": rate = 0.15
-    discount = total * rate
-    return { original: total, discount: discount, final: total - discount, rate: rate }
-```
-
-In statically typed languages use the type system directly (unions/enums, records/structs, generics, nullability annotations). In dynamically typed languages, approximate with gradual typing (Python type hints + mypy/pyright, TypeScript, Sorbet for Ruby, PHP typed properties) and runtime validation at boundaries.
+In statically typed languages use the type system directly (unions/enums, records/structs, generics, nullability annotations). In dynamically typed languages, approximate with gradual typing (Python type hints + mypy/pyright, TypeScript, Sorbet for Ruby, PHP typed properties) and runtime validation at boundaries. The "Gradual / Static Typing" table in `references/language-notes.md` gives the exact mechanism per language.
 
 ---
 
 ## Design Patterns for Refactoring
 
-Patterns are tools, not goals — reach for one only when it removes a real smell. Below are five common refactoring targets. Fuller, multi-language treatments live in `references/design-patterns.md`.
+Patterns are tools, not goals — reach for one only when it removes a real smell. The five most common refactoring targets, each with the smell it fixes:
 
-### Strategy — replace a type-switch on behavior with interchangeable objects
-
-```
-# BEFORE: branching on a "method" string
-function calculateShipping(order, method):
-    if method == "standard":  return order.total > 50  ? 0 : 5.99
-    if method == "express":   return order.total > 100 ? 9.99 : 14.99
-    if method == "overnight": return 29.99
-
-# AFTER: each strategy is its own object behind a common interface
-interface ShippingStrategy:        calculate(order) -> number
-class StandardShipping:  calculate(order): return order.total > 50  ? 0 : 5.99
-class ExpressShipping:   calculate(order): return order.total > 100 ? 9.99 : 14.99
-class OvernightShipping: calculate(order): return 29.99
-
-function calculateShipping(order, strategy: ShippingStrategy):
-    return strategy.calculate(order)
-```
-
-### Chain of Responsibility — turn a wall of validation into a pipeline
-
-When a function accumulates a series of independent checks, model each as its own link so the set of checks can change without touching the others.
-
-```
-# BEFORE: one function accumulating errors
-function validate(user):
-    errors = []
-    if not user.email:                 errors.add("Email required")
-    elif not isValidEmail(user.email): errors.add("Invalid email")
-    if not user.name:                  errors.add("Name required")
-    if user.age < 18:                  errors.add("Must be 18+")
-    if user.country == "blocked":      errors.add("Country not supported")
-    return errors
-
-# AFTER: each check is independent — either a chain of handler objects,
-# or (simpler) a list of validator functions run in turn:
-validators = [
-    u -> u.email ? null : "Email required",
-    u -> (u.email and not isValidEmail(u.email)) ? "Invalid email" : null,
-    u -> u.name ? null : "Name required",
-    u -> u.age < 18 ? "Must be 18+" : null,
-]
-firstError = firstNonNull(map(validators, v -> v(user)))   # null if all pass
-```
-
-The full OO base-class form (a `Validator` with `next`/`setNext`/`handle`) and the functional variant — including when to prefer each — are in `references/design-patterns.md`. Prefer the functional list above unless links must carry state or be reconfigured at runtime.
-
-### Also commonly used when refactoring
-
+- **Strategy** — replace a type-switch on behavior (e.g. branching on a `method` string) with interchangeable objects behind a common interface.
+- **Chain of Responsibility** — turn a function accumulating many independent checks into a pipeline where each check is its own link (or, more simply, a list of validator functions run in turn).
 - **Factory / Factory Method** — centralize messy object construction scattered across the codebase.
 - **Observer** — decouple "something changed" from "everyone who cares", replacing direct cross-calls.
 - **Decorator** — add behavior (logging, caching, retries) without subclass explosions or editing the core type.
 
-See `references/design-patterns.md` for before/after examples of each in multiple languages.
+Full before/after implementations for each — in multiple languages, with the functional vs OO trade-offs and guidance on when to prefer each — are in `references/design-patterns.md`. Load it whenever a refactor calls for a pattern.
 
 ---
 
