@@ -1,0 +1,555 @@
+---
+name: refactor
+description: 'Surgical, language-agnostic code refactoring to improve maintainability without changing behavior. Covers extracting functions, renaming, breaking down god functions/classes, improving type safety, eliminating code smells, applying design patterns, and characterization-testing legacy code before changing it. Works across any language and framework, with dedicated idiom notes for Python, JavaScript/TypeScript, Java, C#/.NET, Go, Rust, Ruby, PHP, C++, Kotlin, Swift, Groovy, Perl, PowerShell, Bash/shell, HTML/CSS, databases and query languages (PL/SQL, T-SQL, PL/pgSQL, SQL, MongoDB MQL, CQL, Cypher), and frameworks including React, React Native, Angular, Node.js, and Spring Boot. Use this skill whenever the user asks to "clean up", "refactor", "improve", "tidy", "restructure", or "make more maintainable" any code, in any language or framework, even if they do not say the word "refactor" explicitly. Less drastic than a full rewrite; use for gradual improvements.'
+license: MIT
+---
+
+# Refactor
+
+## Overview
+
+Improve code structure and readability **without changing external behavior**. Refactoring is gradual evolution, not revolution. Use this for improving existing code, not rewriting from scratch.
+
+This skill is built on **language-agnostic principles** — the smells, fixes, and process apply to every language, and the code examples use pseudocode-like notation so they translate directly. On top of that foundation it carries **dedicated idiom notes** for a broad set of languages, databases, and frameworks: how you create a value object, enforce types, or run tests in each. The per-language mechanics are summarized in the notes at the bottom and in `references/language-notes.md`. Framework-specific smells (React, React Native, Angular, Node.js, Spring Boot, .NET) live in `references/framework-notes.md`, loaded only when a framework request comes in.
+
+## Enterprise Usage
+
+This is a shared, company-wide skill. A few standing rules for safe team use:
+
+- **Never refactor untested legacy code without a safety net first.** Establish characterization tests (see "Establishing a Safety Net") before touching behavior. This is non-negotiable for shared/production code.
+- **Behavior must be preserved.** Refactoring changes structure, not what the code does. If behavior should change, that is a separate feature/fix commit — never mix the two.
+- **Keep refactors small and reviewable.** Prefer many small, independently reviewable changes over one large rewrite, so diffs stay easy to review and revert.
+- **Follow existing house conventions.** Match the surrounding codebase's style, naming, and patterns rather than introducing new ones mid-refactor. When a team has a documented standard, that standard wins over this skill's defaults.
+- **Flag, don't assume.** If a refactor would touch a public API, shared contract, or cross-team boundary, call it out for review rather than proceeding silently.
+
+## When to Use
+
+- Code is hard to understand or maintain
+- Functions/classes/modules are too large or do too much
+- Code smells need addressing (duplication, magic values, deep nesting, etc.)
+- Adding features is difficult because of the current structure
+- User asks to "clean up", "refactor", "improve", "tidy", or "restructure" code
+
+## How to Use This Skill
+
+1. **Confirm the language and test situation first.** Refactoring without a safety net is just editing. See "Establishing a Safety Net" below.
+2. Identify the smell(s) using "Common Code Smells & Fixes".
+3. Apply the matching fix in small steps, re-running tests after each.
+4. Use the per-language notes for syntax/idiom specifics.
+5. Verify against the checklist.
+
+---
+
+## Refactoring Principles
+
+### The Golden Rules
+
+1. **Behavior is preserved** — refactoring changes *how*, never *what*.
+2. **Small steps** — make tiny changes, verify after each.
+3. **Version control is your friend** — commit at every green (passing) state.
+4. **Tests are essential** — without a way to verify behavior, you are editing, not refactoring.
+5. **One thing at a time** — never mix refactoring with feature or behavior changes in the same commit.
+
+### When NOT to Refactor
+
+- Code that works and will never change again ("if it ain't broke…").
+- Critical code with no tests — **add a safety net first** (see below).
+- Under a tight deadline with no buffer for verification.
+- "Just because" — refactoring needs a concrete purpose (readability for an upcoming change, removing a blocker, fixing a smell that caused a bug).
+
+---
+
+## Establishing a Safety Net (do this BEFORE touching legacy code)
+
+You cannot preserve behavior you haven't pinned down. If the code lacks tests, add **characterization tests** (a.k.a. golden-master / approval tests) first. These don't assert "correct" behavior — they assert *current* behavior, so any accidental change shows up as a failure.
+
+Process, in any language:
+
+1. Pick the unit you're about to refactor (a function, class, or module).
+2. Feed it representative and edge-case inputs.
+3. Capture whatever it currently returns/prints/writes as the "expected" value — even if that output looks wrong. You're freezing today's behavior.
+4. Now refactor. If a characterization test fails, you changed behavior — investigate before continuing.
+5. Once refactoring is done, you may *then* fix genuine bugs as separate, clearly-labeled commits with their own assertions.
+
+Pseudocode of the idea:
+
+```
+# Characterization test — pins CURRENT behavior, not "correct" behavior
+result = legacyFunction(sampleInput)
+assertEquals(result, "<whatever it produces today>")   # capture, don't judge
+```
+
+Approval-test tooling exists in most ecosystems (e.g. snapshot tests in JS/TS, `pytest`'s snapshot plugins or `approvaltests` in Python, ApprovalTests in Java/C#/C++, golden files in Go). Use them when output is large or structured.
+
+---
+
+## Common Code Smells & Fixes
+
+Each fix below is shown in language-neutral pseudocode. The transformation is what matters; adapt syntax to your language.
+
+### 1. Long Method / Function
+
+A function that does many things is hard to read, test, and reuse. Extract each responsibility into its own well-named function.
+
+```
+# BEFORE: one function doing everything
+function processOrder(orderId):
+    # fetch order ...
+    # validate order ...
+    # calculate pricing ...
+    # update inventory ...
+    # create shipment ...
+    # send notifications ...
+
+# AFTER: a coordinator delegating to focused functions
+function processOrder(orderId):
+    order    = fetchOrder(orderId)
+    validateOrder(order)
+    pricing  = calculatePricing(order)
+    updateInventory(order)
+    shipment = createShipment(order)
+    sendNotifications(order, pricing, shipment)
+    return { order, pricing, shipment }
+```
+
+### 2. Duplicated Code
+
+The same logic in two places drifts apart over time. Extract it once.
+
+```
+# BEFORE: rate logic duplicated
+function calculateUserDiscount(user):
+    if user.membership == "gold":   return user.total * 0.2
+    if user.membership == "silver": return user.total * 0.1
+    return 0
+
+function calculateOrderDiscount(order):
+    if order.user.membership == "gold":   return order.total * 0.2
+    if order.user.membership == "silver": return order.total * 0.1
+    return 0
+
+# AFTER: single source of truth
+function membershipDiscountRate(membership):
+    rates = { "gold": 0.2, "silver": 0.1 }
+    return rates.get(membership, 0)
+
+function calculateUserDiscount(user):
+    return user.total * membershipDiscountRate(user.membership)
+
+function calculateOrderDiscount(order):
+    return order.total * membershipDiscountRate(order.user.membership)
+```
+
+### 3. Large Class / Module (God Object)
+
+A type that knows and does too much. Split by responsibility (Single Responsibility Principle).
+
+```
+# BEFORE: one class owns everything
+class UserManager:
+    createUser(); updateUser(); deleteUser()
+    sendEmail(); generateReport(); handlePayment(); validateAddress()
+    # ...many more
+
+# AFTER: one responsibility per type
+class UserService:    create(data); update(id, data); delete(id)
+class EmailService:   send(to, subject, body)
+class ReportService:  generate(type, params)
+class PaymentService: process(amount, method)
+```
+
+### 4. Long Parameter List
+
+Too many parameters are hard to call correctly and easy to mis-order. Group related ones into an object/struct/record.
+
+```
+# BEFORE
+function createUser(email, password, name, age, address, city, country, phone): ...
+
+# AFTER: a parameter object / struct / record / data class
+type UserData = {
+    email, password, name,
+    age?, address?, phone?
+}
+function createUser(data: UserData): ...
+
+# When construction is complex, a builder reads well in any OO language:
+user = UserBuilder()
+    .email("test@example.com")
+    .password("secure123")
+    .name("Test User")
+    .address(address)
+    .build()
+```
+
+### 5. Feature Envy
+
+A method uses another object's data more than its own. Move the logic to the object that owns the data.
+
+```
+# BEFORE: Order reaches into User's fields to decide a rate
+class Order:
+    calculateDiscount(user):
+        if user.membershipLevel == "gold": return this.total * 0.2
+        if user.accountAge > 365:          return this.total * 0.1
+        return 0
+
+# AFTER: User owns the rate; Order just applies it
+class User:
+    discountRate():
+        if this.membershipLevel == "gold": return 0.2
+        if this.accountAge > 365:          return 0.1
+        return 0
+
+class Order:
+    calculateDiscount(user):
+        return this.total * user.discountRate()
+```
+
+### 6. Primitive Obsession
+
+Using raw strings/numbers for domain concepts scatters validation and invites invalid states. Wrap them in small value types that validate on construction.
+
+```
+# BEFORE: a bare string is "an email" only by convention
+function sendEmail(to, subject, body): ...
+sendEmail("user@example.com", "Hello", "...")
+
+# AFTER: a value type that cannot exist in an invalid state
+class Email:
+    constructor(value):
+        if not Email.isValid(value): raise Error("Invalid email")
+        this.value = value
+    static isValid(v): return matches(v, /^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+
+class PhoneNumber:
+    constructor(country, number):
+        if not PhoneNumber.isValid(country, number): raise Error("Invalid phone")
+        this.country = country; this.number = number
+    toString(): return country + "-" + number
+
+email = Email("user@example.com")
+phone = PhoneNumber("1", "555-1234")
+```
+
+> The regex above is illustrative only — for real validation use a vetted library or your platform's built-in validator rather than a hand-rolled pattern.
+
+### 7. Magic Numbers / Strings
+
+Unexplained literals hide intent. Name them.
+
+```
+# BEFORE
+if user.status == 2: ...
+discount = total * 0.15
+sleep(86400000)
+
+# AFTER: named constants / enums
+enum UserStatus { ACTIVE = 1, INACTIVE = 2, SUSPENDED = 3 }
+constant DISCOUNT_PREMIUM = 0.15
+constant ONE_DAY_MS = 24 * 60 * 60 * 1000
+
+if user.status == UserStatus.INACTIVE: ...
+discount = total * DISCOUNT_PREMIUM
+sleep(ONE_DAY_MS)
+```
+
+### 8. Nested Conditionals ("Arrow Code")
+
+Deeply indented `if`s are hard to follow. Flatten with guard clauses / early returns.
+
+```
+# BEFORE: deeply nested, hard to track which branch you're in
+function process(order):
+    if order:
+        if order.user:
+            if order.user.isActive:
+                if order.total > 0:
+                    return processOrder(order)
+                else:
+                    return { error: "Invalid total" }
+            else:
+                return { error: "User inactive" }
+        else:
+            return { error: "No user" }
+    else:
+        return { error: "No order" }
+
+# AFTER: guard clauses, one happy path at the end
+function process(order):
+    if not order:               return { error: "No order" }
+    if not order.user:          return { error: "No user" }
+    if not order.user.isActive: return { error: "User inactive" }
+    if order.total <= 0:        return { error: "Invalid total" }
+    return processOrder(order)
+```
+
+If your language has a result/option type (Rust `Result`, Kotlin/Swift `Result`, functional `Either`), chaining validators is an even cleaner option — see `references/language-notes.md`.
+
+### 9. Dead Code
+
+Unused functions, variables, imports, and commented-out blocks add noise and mislead readers.
+
+```
+# BEFORE
+function oldImplementation(): ...    # never called
+constant DEPRECATED_VALUE = 5        # never read
+import unusedThing
+# function oldCode(): ...            # commented out
+
+# AFTER: delete it. Version control is the archive.
+```
+
+Use your language's tooling to find dead code (linters, `--dead-code` flags, IDE "unused symbol" warnings, coverage reports).
+
+### 10. Inappropriate Intimacy (Train Wrecks)
+
+One object reaches through several others (`a.b.c.d`), coupling itself to internal structure. Tell objects what to do; don't pull out their internals (Law of Demeter).
+
+```
+# BEFORE: reaching deep into the object graph
+class OrderProcessor:
+    process(order):
+        street = order.user.profile.address.street    # too intimate
+        cfg    = order.repository.connection.config    # breaks encapsulation
+
+# AFTER: ask the object to do the work
+class OrderProcessor:
+    process(order):
+        order.shippingAddress()   # Order knows how to get it
+        order.save()              # Order knows how to save itself
+```
+
+---
+
+## Worked Example: Extract Method
+
+```
+# BEFORE: one long reporting function
+function printReport(users):
+    print("USER REPORT"); print("============"); print("")
+    print("Total users: " + len(users)); print("")
+    print("ACTIVE USERS"); print("------------")
+    active = filter(users, u -> u.isActive)
+    for u in active: print("- " + u.name + " (" + u.email + ")")
+    print(""); print("Active: " + len(active)); print("")
+    print("INACTIVE USERS"); print("--------------")
+    inactive = filter(users, u -> not u.isActive)
+    for u in inactive: print("- " + u.name + " (" + u.email + ")")
+    print(""); print("Inactive: " + len(inactive))
+
+# AFTER: small, named, reusable pieces
+function printReport(users):
+    printHeader("USER REPORT")
+    print("Total users: " + len(users) + "\n")
+    printUserSection("ACTIVE",   filter(users, u -> u.isActive))
+    printUserSection("INACTIVE", filter(users, u -> not u.isActive))
+
+function printHeader(title):
+    print(title); print(repeat("=", len(title))); print("")
+
+function printUserSection(label, users):
+    print(label + " USERS"); print(repeat("-", len(label) + 6))
+    for u in users: print("- " + u.name + " (" + u.email + ")")
+    print(""); print(label + ": " + len(users)); print("")
+```
+
+---
+
+## Introducing Type Safety
+
+Where a language supports it, replace loosely-typed values with explicit types and constrained domains. This turns whole classes of bugs into compile-time (or lint-time) errors.
+
+```
+# BEFORE: untyped, behavior depends on stringly-typed inputs
+function calculateDiscount(user, total, membership, date):
+    if membership == "gold" and dayOfWeek(date) == FRIDAY: return total * 0.25
+    if membership == "gold": return total * 0.2
+    return total * 0.1
+
+# AFTER: constrained types + a structured result
+type Membership = one_of("bronze", "silver", "gold")
+
+type DiscountResult = { original, discount, final, rate }
+
+function calculateDiscount(user, total, date = now()) -> DiscountResult:
+    if total < 0: raise Error("Total cannot be negative")
+    rate = 0.1                                   # default: bronze
+    if user.membership == "gold" and dayOfWeek(date) == FRIDAY: rate = 0.25
+    elif user.membership == "gold":   rate = 0.2
+    elif user.membership == "silver": rate = 0.15
+    discount = total * rate
+    return { original: total, discount: discount, final: total - discount, rate: rate }
+```
+
+In statically typed languages use the type system directly (unions/enums, records/structs, generics, nullability annotations). In dynamically typed languages, approximate with gradual typing (Python type hints + mypy/pyright, TypeScript, Sorbet for Ruby, PHP typed properties) and runtime validation at boundaries.
+
+---
+
+## Design Patterns for Refactoring
+
+Patterns are tools, not goals — reach for one only when it removes a real smell. Below are five common refactoring targets. Fuller, multi-language treatments live in `references/design-patterns.md`.
+
+### Strategy — replace a type-switch on behavior with interchangeable objects
+
+```
+# BEFORE: branching on a "method" string
+function calculateShipping(order, method):
+    if method == "standard":  return order.total > 50  ? 0 : 5.99
+    if method == "express":   return order.total > 100 ? 9.99 : 14.99
+    if method == "overnight": return 29.99
+
+# AFTER: each strategy is its own object behind a common interface
+interface ShippingStrategy:        calculate(order) -> number
+class StandardShipping:  calculate(order): return order.total > 50  ? 0 : 5.99
+class ExpressShipping:   calculate(order): return order.total > 100 ? 9.99 : 14.99
+class OvernightShipping: calculate(order): return 29.99
+
+function calculateShipping(order, strategy: ShippingStrategy):
+    return strategy.calculate(order)
+```
+
+### Chain of Responsibility — turn a wall of validation into a pipeline
+
+When a function accumulates a series of independent checks, model each as its own link so the set of checks can change without touching the others.
+
+```
+# BEFORE: one function accumulating errors
+function validate(user):
+    errors = []
+    if not user.email:                 errors.add("Email required")
+    elif not isValidEmail(user.email): errors.add("Invalid email")
+    if not user.name:                  errors.add("Name required")
+    if user.age < 18:                  errors.add("Must be 18+")
+    if user.country == "blocked":      errors.add("Country not supported")
+    return errors
+
+# AFTER: each check is independent — either a chain of handler objects,
+# or (simpler) a list of validator functions run in turn:
+validators = [
+    u -> u.email ? null : "Email required",
+    u -> (u.email and not isValidEmail(u.email)) ? "Invalid email" : null,
+    u -> u.name ? null : "Name required",
+    u -> u.age < 18 ? "Must be 18+" : null,
+]
+firstError = firstNonNull(map(validators, v -> v(user)))   # null if all pass
+```
+
+The full OO base-class form (a `Validator` with `next`/`setNext`/`handle`) and the functional variant — including when to prefer each — are in `references/design-patterns.md`. Prefer the functional list above unless links must carry state or be reconfigured at runtime.
+
+### Also commonly used when refactoring
+
+- **Factory / Factory Method** — centralize messy object construction scattered across the codebase.
+- **Observer** — decouple "something changed" from "everyone who cares", replacing direct cross-calls.
+- **Decorator** — add behavior (logging, caching, retries) without subclass explosions or editing the core type.
+
+See `references/design-patterns.md` for before/after examples of each in multiple languages.
+
+---
+
+## The Safe Refactoring Process
+
+```
+1. PREPARE
+   - Ensure a safety net exists (tests or characterization tests). Add if missing.
+   - Commit the current state. Work on a branch.
+
+2. IDENTIFY
+   - Find the specific smell. Understand current behavior. Plan the change.
+
+3. REFACTOR (small steps)
+   - Make ONE small change → run tests → commit if green → repeat.
+
+4. VERIFY
+   - All tests pass. Manual/exploratory check if needed. Performance not regressed.
+
+5. CLEAN UP
+   - Update comments and docs. Final commit. Open PR.
+```
+
+---
+
+## Refactoring Checklist
+
+### Safety Net
+- [ ] Tests (or characterization tests) exist and pass before starting
+- [ ] Behavior is verified unchanged after each step
+
+### Code Quality
+- [ ] Functions are small and do one thing
+- [ ] No duplicated logic
+- [ ] Descriptive names for variables, functions, types
+- [ ] No magic numbers/strings
+- [ ] Dead code removed
+
+### Structure
+- [ ] Related code lives together; clear module boundaries
+- [ ] Dependencies flow in one direction; no circular dependencies
+- [ ] No train wrecks / Law of Demeter respected
+
+### Type Safety (where the language supports it)
+- [ ] Public APIs have explicit types
+- [ ] No escape-hatch types (`any`, `Object`, `interface{}`, `void*`) without justification
+- [ ] Nullability is explicit
+
+---
+
+## Common Refactoring Operations
+
+| Operation | Description |
+| --- | --- |
+| Extract Method/Function | Turn a code fragment into a named callable |
+| Extract Class/Module | Move related behavior into a new type |
+| Extract Interface | Define an interface from an implementation |
+| Inline Method/Class | Move a body back to its caller when indirection adds nothing |
+| Pull Up / Push Down Member | Move a member up to a base or down to a subtype |
+| Rename | Improve clarity of any symbol |
+| Introduce Parameter Object | Group related parameters |
+| Replace Conditional with Polymorphism | Use types/strategy instead of switch/if |
+| Replace Magic Number with Constant | Name the value |
+| Decompose / Consolidate Conditional | Break up or combine complex conditions |
+| Replace Nested Conditional with Guard Clauses | Early returns |
+| Introduce Null Object | Remove repetitive null checks |
+| Replace Type Code with Class/Enum | Strong typing for categories |
+| Replace Inheritance with Delegation | Composition over inheritance |
+
+---
+
+## Per-Language Quick Notes
+
+Mechanics differ by language; the refactorings don't. Highlights below; full details in `references/language-notes.md`.
+
+- **Python** — type hints + mypy/pyright for type safety; `@dataclass`/`NamedTuple` for parameter objects; `enum.Enum` for type codes; `pytest` + snapshot/`approvaltests` for characterization tests; `vulture`/`ruff` for dead code.
+- **JavaScript / TypeScript** — prefer TS for type safety (unions, `interface`, generics, `strictNullChecks`); object params for long lists; jest/vitest snapshots for characterization; `ts-prune`/ESLint for dead code.
+- **Java** — `record` for parameter objects/value types; `enum` for type codes; interfaces + strategy; JUnit + ApprovalTests; IDE inspections for dead code.
+- **C#** — `record`/`readonly struct` for value types; `enum`; pattern matching to flatten conditionals; xUnit/NUnit + ApprovalTests.
+- **Go** — small interfaces for strategy; structs for parameter objects; explicit error returns instead of deep nesting; golden files for characterization; `deadcode`/`staticcheck`.
+- **Rust** — `enum` + `match` (often replaces strategy outright); `Result`/`Option` for control flow; newtypes for primitive obsession; `insta` for snapshot tests; `cargo clippy`.
+- **Ruby** — Plain Old Ruby Objects per responsibility; keyword args / value objects for long params; Sorbet/RBS for gradual typing; `rspec` snapshots.
+- **PHP** — typed properties, enums (8.1+), readonly classes for value objects; PHPUnit + snapshot tests.
+- **C++** — `enum class`, strong typedefs/value classes; `std::variant` + `std::visit` for strategy-like dispatch; ApprovalTests.cpp; clang-tidy for smells.
+- **Kotlin / Swift** — `data class`/`struct` for parameter objects; sealed classes/enums + `when`/`switch` for polymorphic dispatch; `Result` for control flow.
+- **Groovy** — `@Immutable`/`@Canonical` for value objects; closures as strategies; `@CompileStatic` for gradual typing; Spock + CodeNarc.
+- **Perl** — `use strict; use warnings`; extract subs; `use constant`/`Readonly` for magic values; hash of coderefs for dispatch; Perl::Critic + Test::More.
+- **Shell (Bash/POSIX)** — `set -euo pipefail`; extract functions; quote variables; `readonly` constants; shellcheck + bats.
+- **PowerShell** — functions with `[CmdletBinding()]` + typed `param()`; approved Verb-Noun names; splatting for long params; PSScriptAnalyzer + Pester.
+- **HTML / CSS** — extract repeated markup into components/partials; semantic elements over div soup; CSS custom properties for repeated values; BEM/utility naming; remove dead CSS (PurgeCSS); verify with visual-regression tests, not unit tests.
+- **Databases** — *procedural* (PL/SQL, T-SQL, PL/pgSQL): extract procedures/CTEs, replace row-by-row cursors with set-based statements, break up giant procs, guard clauses, test with utPLSQL/tSQLt/pgTAP. *Declarative queries* (SQL, MongoDB MQL, CQL, Cypher): readability and structure only — name CTEs/pipeline stages, push filters early, de-duplicate fragments, parameterize literals; verify the result set is unchanged. See `references/language-notes.md`.
+
+## Framework-Specific Refactoring
+
+Frameworks add their own smells on top of the base language. The agent loads `references/framework-notes.md` only when a framework request comes in. Highlights:
+
+- **React / React Native** — extract child components and **custom hooks** to kill duplication; replace prop drilling with Context; split overloaded `useEffect`s; compute derived values in render instead of storing them. RN adds: extract `StyleSheet`, split `.ios`/`.android` files, memoize list rows.
+- **Angular** — move logic out of components into injectable **services**; replace manual `subscribe()` with the **async pipe** and RxJS operators; lift shared state into services/stores; `OnPush`/Signals for change detection; strategy via DI tokens.
+- **Node.js** — convert callback hell to `async/await`; split fat route handlers into **handler → service → repository**; keep logic out of `req`/`res` so it's testable; centralize error handling.
+- **Spring Boot** — thin controllers, logic in `@Service`; **constructor injection** over field injection; `@ConfigurationProperties` typed config; strategy beans instead of type-switches.
+- **.NET / ASP.NET Core** — thin controllers with DI; typed `IOptions<T>` config; `record` DTOs; cross-cutting concerns in middleware; extract inline minimal-API handlers.
+
+---
+
+## Reference Files
+
+- `references/language-notes.md` — idiomatic mechanics for each smell/fix per language, including shell scripting (Bash/PowerShell/Perl), markup/styling (HTML/CSS), and databases/query languages (PL/SQL, T-SQL, PL/pgSQL, SQL, MongoDB MQL, CQL, Cypher).
+- `references/framework-notes.md` — framework-specific smells and fixes for React, React Native, Angular, Node.js, Spring Boot, and .NET / ASP.NET Core.
+- `references/design-patterns.md` — Strategy, Chain of Responsibility, Factory, Observer, and Decorator, each with before/after in multiple languages, plus functional alternatives.
