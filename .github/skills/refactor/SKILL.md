@@ -1,7 +1,6 @@
 ---
 name: refactor
-description: 'Surgical, language-agnostic code refactoring to improve maintainability without changing behavior. Covers extracting functions, renaming, breaking down god functions/classes, improving type safety, eliminating code smells, applying design patterns, and characterization-testing legacy code before changing it. Works across any language and framework, with dedicated idiom notes for Python, JavaScript/TypeScript, Java, C#/.NET, Go, Rust, Ruby, PHP, C++, Kotlin, Swift, Groovy, Perl, PowerShell, Bash/shell, HTML/CSS, databases and query languages (PL/SQL, T-SQL, PL/pgSQL, SQL, MongoDB MQL, CQL, Cypher), and frameworks including React, React Native, Angular, Node.js, and Spring Boot. Use this skill whenever the user asks to "clean up", "refactor", "improve", "tidy", "restructure", or "make more maintainable" any code, in any language or framework, even if they do not say the word "refactor" explicitly. Less drastic than a full rewrite; use for gradual improvements.'
-license: MIT
+description: 'Surgical, language-agnostic code refactoring to improve maintainability without changing behavior. Covers extracting functions, renaming, breaking down god functions/classes, improving type safety, eliminating code smells, applying design patterns, and characterization-testing legacy code before changing it. Works across any language and framework, with dedicated idiom notes for Python, JavaScript/TypeScript, Java, C#/.NET, Go, Rust, Ruby, PHP, C++, Kotlin, Swift, Groovy, Perl, PowerShell, Bash/shell, HTML/CSS, and frameworks including React, React Native, Angular, Node.js, and Spring Boot. Use this skill whenever the user asks to "clean up", "refactor", "improve", "tidy", "restructure", or "make more maintainable" any code, in any language or framework, even if they do not say the word "refactor" explicitly. Less drastic than a full rewrite; use for gradual improvements.'
 ---
 
 # Refactor
@@ -12,7 +11,7 @@ license: MIT
 
 Improve code structure and readability **without changing external behavior**. Refactoring is gradual evolution, not revolution. Use this for improving existing code, not rewriting from scratch.
 
-This skill is built on **language-agnostic principles** — the smells, fixes, and process apply to every language, and the code examples use pseudocode-like notation so they translate directly. On top of that foundation it carries **dedicated idiom notes** for a broad set of languages, databases, and frameworks: how you create a value object, enforce types, or run tests in each. The per-language mechanics are summarized in the "Per-Language Quick Notes" section below and detailed in `references/language-notes.md`. Framework-specific smells (React, React Native, Angular, Node.js, Spring Boot, .NET) live in `references/framework-notes.md`, loaded only when a framework request comes in.
+This skill is built on **language-agnostic principles** — the smells, fixes, and process apply to every language, and the code examples use pseudocode-like notation so they translate directly. On that foundation it carries **dedicated idiom notes** for a broad set of languages and frameworks: how you create a value object, enforce types, or run tests in each. The per-language mechanics are summarized in the "Per-Language Quick Notes" section below and detailed in `references/language-notes.md`. Framework-specific smells (React, React Native, Angular, Node.js, Spring Boot, .NET) live in `references/framework-notes.md`, loaded only when a framework request comes in.
 
 ## Enterprise Usage
 
@@ -34,12 +33,35 @@ This is a shared, company-wide skill. A few standing rules for safe team use:
 
 ## How to Use This Skill
 
-1. **Confirm the language and test situation first.** Refactoring without a safety net is just editing. See "Establishing a Safety Net" below.
+1. **Confirm the language, framework, versions, and test situation first.** Refactoring without a safety net is just editing. See "Establishing a Safety Net" below, and check versions per "Version Compatibility" below.
 2. Identify the smell(s) using "Common Code Smells & Fixes".
 3. Apply the matching fix in small steps, re-running tests after each.
-4. Use the per-language notes for syntax/idiom specifics.
+4. Use the per-language notes for syntax/idiom specifics — never exceeding the detected language/framework version.
 5. Verify against the checklist.
 6. Present the result using the fixed structure in "Output Format" (immediately below).
+
+---
+
+## Version Compatibility
+
+Before applying any idiom, determine **two independent versions** and never use a feature newer than either:
+
+1. **Language version** — e.g. Java 8 vs 17, Python 3.8 vs 3.12, C# 7 vs 12, TypeScript target.
+2. **Framework version** — e.g. Spring Boot 2 vs 3, React 16 vs 19, Angular 14 vs 17, .NET Framework 4.8 vs .NET 8, Node 14 vs 22.
+
+These move independently: a project can be on a modern language but an older framework (e.g. **Java 17 + Spring Boot 2.7**), so both ceilings must be respected at once.
+
+**Detect the version from project signals when available:**
+- Java: `pom.xml` (`<maven.compiler.source>`, `spring-boot-starter-parent` version) or `build.gradle` (`sourceCompatibility`, dependency versions)
+- C# / .NET: `.csproj` `<TargetFramework>` and NuGet package versions
+- JS/TS: `package.json` (`engines`, dependency versions for react/@angular/core/next), `tsconfig.json` `target`
+- Python: `pyproject.toml` / `setup.py` `python_requires`, or syntax already in the file
+- Others: the lockfile/manifest, or idioms already present in the code
+
+**Rules:**
+- Never introduce a feature newer than the detected version (no `record` on Java 8, no hooks on React 15, no Jakarta/`@if` on Spring Boot 2 or Angular 14, no minimal APIs on .NET Framework).
+- If a version cannot be determined and the refactor depends on a version-specific idiom, **ask** rather than guess.
+- **Always state the assumed language and framework versions in the output** (in the Verification & Risks section), so a reviewer can catch a wrong assumption — e.g. "Assuming Java 17 + Spring Boot 2.7; using modern Java but avoiding Spring Boot 3 / Jakarta idioms."
 
 ---
 
@@ -55,7 +77,7 @@ Every refactoring response MUST follow this exact five-part structure, in this o
 
 **4. Techniques & Impact** — each refactoring applied, named by its standard operation (e.g. "Extract Method", "Introduce Parameter Object", "Constructor injection", "Replace Nested Conditional with Guard Clauses"), paired with its concrete benefit (what it improves and why it matters).
 
-**5. Verification & Risks** — the test situation before changes (existing tests found / characterization tests added / **none exist → explicit warning that the refactor is unverified and tests should be added first**), how behavior was confirmed unchanged (tests pass / characterization diff clean / manual reasoning), and anything a reviewer must check by hand — public-API or cross-team impact, and any further refactoring deliberately deferred.
+**5. Verification & Risks** — the assumed language and framework versions; the test situation before changes (existing tests found / characterization tests added / **none exist → explicit warning that the refactor is unverified and tests should be added first**), how behavior was confirmed unchanged (tests pass / characterization diff clean / manual reasoning), and anything a reviewer must check by hand — public-API or cross-team impact, and any further refactoring deliberately deferred.
 
 Rules for the template:
 - Never mix a behavior change into a refactoring response. If a bug fix or feature is in scope, stop and flag it under Verification & Risks as a separate task — do not silently bundle it in.
@@ -83,7 +105,6 @@ Mechanics differ by language; the refactorings don't. Highlights here; full deta
 - **Shell (Bash/POSIX)** — `set -euo pipefail`; extract functions; quote variables; `readonly` constants; shellcheck + bats.
 - **PowerShell** — functions with `[CmdletBinding()]` + typed `param()`; approved Verb-Noun names; splatting for long params; PSScriptAnalyzer + Pester.
 - **HTML / CSS** — extract repeated markup into components/partials; semantic elements over div soup; CSS custom properties for repeated values; BEM/utility naming; remove dead CSS (PurgeCSS); verify with visual-regression tests, not unit tests.
-- **Databases** — *procedural* (PL/SQL, T-SQL, PL/pgSQL): extract procedures/CTEs, replace row-by-row cursors with set-based statements, break up giant procs, guard clauses, test with utPLSQL/tSQLt/pgTAP. *Declarative queries* (SQL, MongoDB MQL, CQL, Cypher): readability and structure only — name CTEs/pipeline stages, push filters early, de-duplicate fragments, parameterize literals; verify the result set is unchanged. See `references/language-notes.md`.
 
 ## Framework-Specific Refactoring
 
@@ -477,6 +498,6 @@ Full before/after implementations for each — in multiple languages, with the f
 
 ## Reference Files
 
-- `references/language-notes.md` — idiomatic mechanics for each smell/fix per language, including shell scripting (Bash/PowerShell/Perl), markup/styling (HTML/CSS), and databases/query languages (PL/SQL, T-SQL, PL/pgSQL, SQL, MongoDB MQL, CQL, Cypher).
+- `references/language-notes.md` — idiomatic mechanics for each smell/fix per language, including shell scripting (Bash/PowerShell/Perl) and markup/styling (HTML/CSS).
 - `references/framework-notes.md` — framework-specific smells and fixes for React, React Native, Angular, Node.js, Spring Boot, and .NET / ASP.NET Core.
 - `references/design-patterns.md` — Strategy, Chain of Responsibility, Factory, Observer, and Decorator, each with before/after in multiple languages, plus functional alternatives.
