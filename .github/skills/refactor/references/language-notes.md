@@ -12,7 +12,6 @@ Idiomatic mechanics for applying each refactoring per language. The *refactoring
 - [Finding Dead Code](#finding-dead-code)
 - [Shell & Scripting (Bash / Shell, PowerShell, Perl)](#shell--scripting-bash--shell-powershell-perl)
 - [Markup & Styling (HTML, CSS)](#markup--styling-html--css)
-- [Databases & Query Languages](#databases--query-languages)
 
 ---
 
@@ -144,37 +143,3 @@ HTML and CSS aren't behavioral code, so most "method" refactorings don't apply. 
 
 - **HTML** — extract repeated markup into reusable **components / partials / includes / web components** (this is "remove duplication" + "extract method" for templates); use **semantic elements** instead of `div` soup; pull inline `style=`/`onclick=` out into CSS/JS; reduce wrapper nesting. Validate structure with the W3C validator / `html-validate`.
 - **CSS** — replace repeated values (colors, spacing) with **custom properties** (`--brand: ...`); consolidate duplicated rule sets; adopt a naming convention (**BEM** or utility classes) to tame specificity wars; replace fragile deep descendant selectors with single-class selectors; remove **dead/unused CSS** (Chrome DevTools Coverage, **PurgeCSS**); lint with **stylelint**.
-
----
-
-## Databases & Query Languages
-
-These split into two categories that refactor very differently.
-
-### Procedural SQL — PL/SQL, T-SQL, PL/pgSQL
-
-These are full imperative languages (variables, loops, branching, stored procedures/functions), so the standard smells and fixes all apply. "Behavior preserved" = **same result set / same side effects**, pinned with characterization tests over known inputs.
-
-- **Row-by-row processing (RBAR).** The biggest smell: cursors or loops handling one row at a time. Rewrite as a single **set-based** statement (`UPDATE ... FROM`, `MERGE`, `INSERT ... SELECT`). Usually clearer *and* far faster.
-- **Giant stored procedure doing everything.** Split into smaller procedures/functions, each with one responsibility; the parent proc orchestrates.
-- **Copy-pasted query blocks.** Extract into a **CTE**, **view**, or table-valued/inline function — "extract method" for SQL.
-- **Deeply nested `IF`/`CASE`.** Flatten with guard clauses: early `RETURN` on invalid input at the top of the proc.
-- **Magic literals in `WHERE`/`CASE`.** Promote to declared variables, parameters, or a lookup/reference table.
-- **String-built dynamic SQL (injection + duplication).** Parameterize with bind variables.
-
-| Dialect | Idioms & test tooling |
-| --- | --- |
-| PL/SQL (Oracle) | **packages** to group related procs; `%ROWTYPE`/records as parameter objects; `BULK COLLECT`/`FORALL` to kill RBAR; guard clauses via early `RETURN`; test with **utPLSQL** |
-| T-SQL (SQL Server) | table-valued params as parameter objects; `MERGE`/set-based over cursors; `TRY...CATCH` for error guards; test with **tSQLt**; snapshot result sets |
-| PL/pgSQL (PostgreSQL) | functions grouped by schema; `RETURNS TABLE`/composite types as records; set-based over `LOOP`; `RAISE`/exception blocks for guards; test with **pgTAP** |
-
-### Declarative query languages — SQL, MQL, CQL, Cypher
-
-These describe *what* you want, not control flow, so "extract function" rarely applies. Refactoring here targets **readability, structure, and duplication**. "Behavior preserved" = **same result set**; verify by diffing query output against a known fixture/dataset.
-
-- **Plain SQL (queries).** Break long queries into named **CTEs** (`WITH`); replace correlated subqueries-used-as-loops with `JOIN`s or **window functions**; promote repeated query fragments into **views**; alias clearly; replace `SELECT *` with explicit columns. Format/lint with **sqlfluff**.
-- **MongoDB Query Language (MQL) / aggregation.** Break a giant aggregation pipeline into clearly ordered, named stages; push filters (`$match`) as early as possible; extract reused pipeline fragments into named variables in the host language; replace deeply nested `$cond` with `$switch`; name and reuse pipeline definitions rather than copy-pasting.
-- **CQL (Cassandra).** Mostly shaped by the data model — refactoring is usually **denormalizing/adding query-specific tables** so each query hits one partition; remove `ALLOW FILTERING` queries by modeling a supporting table; name and standardize prepared statements rather than ad-hoc inlined ones.
-- **Cypher (Neo4j).** Split long traversals into staged `WITH` pipelines (the CTE equivalent); extract reusable subqueries via `CALL { ... }`; parameterize literals (`$param`) instead of string-building; replace repeated path patterns with named patterns; keep `MATCH` patterns readable rather than one mega-pattern.
-
-Across all four: the refactor must not change the result set. Always capture current output on a representative dataset *before* changing the query, then diff after.
