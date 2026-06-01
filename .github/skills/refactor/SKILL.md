@@ -3,7 +3,7 @@ name: refactor
 description: 'Surgical, language-agnostic code refactoring to improve maintainability without changing behavior. Covers extracting functions, renaming, breaking down god functions/classes, improving type safety, eliminating code smells, applying design patterns, and characterization-testing legacy code before changing it. Works across any language and framework, with dedicated idiom notes for Python, JavaScript/TypeScript, Java, C#/.NET, Go, Rust, Ruby, PHP, C++, Kotlin, Swift, Groovy, Perl, PowerShell, Bash/shell, HTML/CSS, and frameworks including React, React Native, Angular, Node.js, and Spring Boot. Use this skill whenever the user asks to "clean up", "refactor", "improve", "tidy", "restructure", or "make more maintainable" any code, in any language or framework, even if they do not say the word "refactor" explicitly. Less drastic than a full rewrite; use for gradual improvements.'
 ---
 
-# Refactor
+# Code Refactor
 
 > **Read this entire file before refactoring.** It is ~500 lines. The mandatory response structure ("Output Format") and the per-language idiom notes appear near the top, but the full smell catalog, examples, design-pattern guidance, and reference-file pointers continue to the end. If your file-reading tool loads files in chunks, continue past the first chunk — do not stop early.
 
@@ -50,6 +50,7 @@ Before applying any idiom, determine **two independent versions** and never use 
 These move independently: a project can be on a modern language but an older framework (e.g. **Java 17 + Spring Boot 2.7**), so both ceilings must be respected at once.
 
 **Detect the version from project signals when available:**
+
 - Java: `pom.xml` (`<maven.compiler.source>`, `spring-boot-starter-parent` version) or `build.gradle` (`sourceCompatibility`, dependency versions)
 - C# / .NET: `.csproj` `<TargetFramework>` and NuGet package versions
 - JS/TS: `package.json` (`engines`, dependency versions for react/@angular/core/next), `tsconfig.json` `target`
@@ -57,6 +58,7 @@ These move independently: a project can be on a modern language but an older fra
 - Others: the lockfile/manifest, or idioms already present in the code
 
 **Rules:**
+
 - Never introduce a feature newer than the detected version (no `record` on Java 8, no hooks on React 15, no Jakarta/`@if` on Spring Boot 2 or Angular 14, no minimal APIs on .NET Framework).
 - If a version cannot be determined and the refactor depends on a version-specific idiom, **ask** rather than guess.
 - **Always state the assumed language and framework versions in the output** (in the Verification & Risks section), so a reviewer can catch a wrong assumption — e.g. "Assuming Java 17 + Spring Boot 2.7; using modern Java but avoiding Spring Boot 3 / Jakarta idioms."
@@ -75,17 +77,18 @@ Every refactoring response MUST follow this exact five-part structure, in this o
 
 Example:
 
-| Before | After |
-| --- | --- |
-| Three-branch shipping `if`-chain in `calculateShipping` | Lookup keyed by method |
-| Active/inactive user blocks inline in `buildReport` | Shared `printUserSection` extracted |
-| Eight positional `createUser` parameters | Single `UserData` object |
+| Before                                                  | After                               |
+| ------------------------------------------------------- | ----------------------------------- |
+| Three-branch shipping `if`-chain in `calculateShipping` | Lookup keyed by method              |
+| Active/inactive user blocks inline in `buildReport`     | Shared `printUserSection` extracted |
+| Eight positional `createUser` parameters                | Single `UserData` object            |
 
 **4. Techniques & Impact** — each refactoring applied, named by its standard operation (e.g. "Extract Method", "Introduce Parameter Object", "Constructor injection", "Replace Nested Conditional with Guard Clauses"), paired with its concrete benefit (what it improves and why it matters). Refer to each change by its technique and benefit — do not re-list the locations already given in section 3.
 
 **5. Verification & Risks** — the assumed language and framework versions; the test situation before changes (existing tests found / characterization tests added / **none exist → explicit warning that the refactor is unverified and tests should be added first**), how behavior was confirmed unchanged (tests pass / characterization diff clean / manual reasoning), and anything a reviewer must check by hand — public-API or cross-team impact, and any further refactoring deliberately deferred.
 
 Rules for the template:
+
 - Never mix a behavior change into a refactoring response. If a bug fix or feature is in scope, stop and flag it under Verification & Risks as a separate task — do not silently bundle it in.
 - Keep each section tight and scannable — this is a review aid, not an essay. No code goes in the response at all; the applied edits are visible as a diff in the editor, and the five sections exist to explain what the diff cannot — the diagnosis, intent, techniques, and risks.
 - If the request is too large for one safe step, cover only the first unit and list the remaining units under Verification & Risks, rather than attempting everything at once.
@@ -128,7 +131,7 @@ Frameworks add their own smells on top of the base language. The agent loads `re
 
 ### The Golden Rules
 
-1. **Behavior is preserved** — refactoring changes *how*, never *what*.
+1. **Behavior is preserved** — refactoring changes _how_, never _what_.
 2. **Small steps** — make tiny changes, verify after each.
 3. **Version control is your friend** — commit at every green (passing) state.
 4. **Tests are essential** — without a way to verify behavior, you are editing, not refactoring.
@@ -145,7 +148,7 @@ Frameworks add their own smells on top of the base language. The agent loads `re
 
 ## Establishing a Safety Net (do this BEFORE touching legacy code)
 
-You cannot preserve behavior you haven't pinned down. If the code lacks tests, add **characterization tests** (a.k.a. golden-master / approval tests) first. These don't assert "correct" behavior — they assert *current* behavior, so any accidental change shows up as a failure.
+You cannot preserve behavior you haven't pinned down. If the code lacks tests, add **characterization tests** (a.k.a. golden-master / approval tests) first. These don't assert "correct" behavior — they assert _current_ behavior, so any accidental change shows up as a failure.
 
 Process, in any language:
 
@@ -153,7 +156,7 @@ Process, in any language:
 2. Feed it representative and edge-case inputs.
 3. Capture whatever it currently returns/prints/writes as the "expected" value — even if that output looks wrong. You're freezing today's behavior.
 4. Now refactor. If a characterization test fails, you changed behavior — investigate before continuing.
-5. Once refactoring is done, you may *then* fix genuine bugs as separate, clearly-labeled commits with their own assertions.
+5. Once refactoring is done, you may _then_ fix genuine bugs as separate, clearly-labeled commits with their own assertions.
 
 Pseudocode of the idea:
 
@@ -453,10 +456,12 @@ Full before/after implementations for each — in multiple languages, with the f
 ## Refactoring Checklist
 
 ### Safety Net
+
 - [ ] Tests (or characterization tests) exist and pass before starting
 - [ ] Behavior is verified unchanged after each step
 
 ### Code Quality
+
 - [ ] Functions are small and do one thing
 - [ ] No duplicated logic
 - [ ] Descriptive names for variables, functions, types
@@ -464,11 +469,13 @@ Full before/after implementations for each — in multiple languages, with the f
 - [ ] Dead code removed
 
 ### Structure
+
 - [ ] Related code lives together; clear module boundaries
 - [ ] Dependencies flow in one direction; no circular dependencies
 - [ ] No train wrecks / Law of Demeter respected
 
 ### Type Safety (where the language supports it)
+
 - [ ] Public APIs have explicit types
 - [ ] No escape-hatch types (`any`, `Object`, `interface{}`, `void*`) without justification
 - [ ] Nullability is explicit
@@ -477,22 +484,22 @@ Full before/after implementations for each — in multiple languages, with the f
 
 ## Common Refactoring Operations
 
-| Operation | Description |
-| --- | --- |
-| Extract Method/Function | Turn a code fragment into a named callable |
-| Extract Class/Module | Move related behavior into a new type |
-| Extract Interface | Define an interface from an implementation |
-| Inline Method/Class | Move a body back to its caller when indirection adds nothing |
-| Pull Up / Push Down Member | Move a member up to a base or down to a subtype |
-| Rename | Improve clarity of any symbol |
-| Introduce Parameter Object | Group related parameters |
-| Replace Conditional with Polymorphism | Use types/strategy instead of switch/if |
-| Replace Magic Number with Constant | Name the value |
-| Decompose / Consolidate Conditional | Break up or combine complex conditions |
-| Replace Nested Conditional with Guard Clauses | Early returns |
-| Introduce Null Object | Remove repetitive null checks |
-| Replace Type Code with Class/Enum | Strong typing for categories |
-| Replace Inheritance with Delegation | Composition over inheritance |
+| Operation                                     | Description                                                  |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| Extract Method/Function                       | Turn a code fragment into a named callable                   |
+| Extract Class/Module                          | Move related behavior into a new type                        |
+| Extract Interface                             | Define an interface from an implementation                   |
+| Inline Method/Class                           | Move a body back to its caller when indirection adds nothing |
+| Pull Up / Push Down Member                    | Move a member up to a base or down to a subtype              |
+| Rename                                        | Improve clarity of any symbol                                |
+| Introduce Parameter Object                    | Group related parameters                                     |
+| Replace Conditional with Polymorphism         | Use types/strategy instead of switch/if                      |
+| Replace Magic Number with Constant            | Name the value                                               |
+| Decompose / Consolidate Conditional           | Break up or combine complex conditions                       |
+| Replace Nested Conditional with Guard Clauses | Early returns                                                |
+| Introduce Null Object                         | Remove repetitive null checks                                |
+| Replace Type Code with Class/Enum             | Strong typing for categories                                 |
+| Replace Inheritance with Delegation           | Composition over inheritance                                 |
 
 ---
 
