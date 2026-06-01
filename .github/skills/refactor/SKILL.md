@@ -5,7 +5,7 @@ description: 'Surgical, language-agnostic code refactoring to improve maintainab
 
 # Refactor
 
-> **Read this entire file before refactoring.** It is ~480 lines. The mandatory response structure ("Output Format") and the per-language idiom notes appear near the top, but the full smell catalog, examples, design-pattern guidance, and reference-file pointers continue to the end. If your file-reading tool loads files in chunks, continue past the first chunk — do not stop early.
+> **Read this entire file before refactoring.** It is ~500 lines. The mandatory response structure ("Output Format") and the per-language idiom notes appear near the top, but the full smell catalog, examples, design-pattern guidance, and reference-file pointers continue to the end. If your file-reading tool loads files in chunks, continue past the first chunk — do not stop early.
 
 ## Overview
 
@@ -15,11 +15,9 @@ This skill is built on **language-agnostic principles** — the smells, fixes, a
 
 ## Enterprise Usage
 
-This is a shared, company-wide skill. A few standing rules for safe team use:
+This is a shared, company-wide skill. The universal refactoring principles — preserve behavior, work in small steps, never mix a behavior change into a refactor — are in "The Golden Rules" below and apply here too. On top of those, a few standing rules specific to safe team use:
 
 - **Never refactor untested legacy code without a safety net first.** Establish characterization tests (see "Establishing a Safety Net") before touching behavior. This is non-negotiable for shared/production code.
-- **Behavior must be preserved.** Refactoring changes structure, not what the code does. If behavior should change, that is a separate feature/fix commit — never mix the two.
-- **Keep refactors small and reviewable.** Prefer many small, independently reviewable changes over one large rewrite, so diffs stay easy to review and revert.
 - **Follow existing house conventions.** Match the surrounding codebase's style, naming, and patterns rather than introducing new ones mid-refactor. When a team has a documented standard, that standard wins over this skill's defaults.
 - **Flag, don't assume.** If a refactor would touch a public API, shared contract, or cross-team boundary, call it out for review rather than proceeding silently.
 
@@ -405,12 +403,6 @@ class OrderProcessor:
         order.shippingAddress()   # Order knows how to get it
         order.save()              # Order knows how to save itself
 ```
-
----
-
-## Worked Example: Extract Method
-
-The most common refactoring: when a long function does several things (e.g. a report builder that prints a header, then an active-users section, then an inactive-users section), pull each cohesive block into its own small, named, reusable function (`printHeader`, `printUserSection`), leaving the parent function as a short, readable sequence of calls. Each extracted piece does one thing and can be tested and reused independently. See the per-language notes for the idiomatic way to extract in each language.
 
 ---
 
