@@ -73,15 +73,23 @@ Every refactoring response MUST follow this exact five-part structure, in this o
 
 **2. Refactoring Summary** — one or two sentences stating what was changed and why.
 
-**3. Before vs After (key differences)** — the meaningful changes shown as focused before/after snippets, highlighting only what changed rather than restating unchanged code. The **complete refactored code then follows in a fenced block** with the correct language tag (one labeled block per file for multi-file changes), so nothing the developer needs to apply is hidden.
+**3. Changes Made (key differences)** — a **two-column table** of the meaningful changes, one row per change. The left column headed `Before` describes the prior state (the smell and where it lived); the right column headed `After` describes the new state. Use **plain words only — no code snippets and no complete file**, since the applied edits are already visible as a diff in the editor. Keep each cell to a short phrase anchored to a location (function / class / file). Do **not** name the formal refactoring operation or its benefit here — that is section 4's job, and repeating it is the overlap to avoid.
 
-**4. Techniques & Impact** — each refactoring applied, named by its standard operation (e.g. "Extract Method", "Introduce Parameter Object", "Constructor injection", "Replace Nested Conditional with Guard Clauses"), paired with its concrete benefit (what it improves and why it matters).
+Example:
+
+| Before | After |
+| --- | --- |
+| Three-branch shipping `if`-chain in `calculateShipping` | Lookup keyed by method |
+| Active/inactive user blocks inline in `buildReport` | Shared `printUserSection` extracted |
+| Eight positional `createUser` parameters | Single `UserData` object |
+
+**4. Techniques & Impact** — each refactoring applied, named by its standard operation (e.g. "Extract Method", "Introduce Parameter Object", "Constructor injection", "Replace Nested Conditional with Guard Clauses"), paired with its concrete benefit (what it improves and why it matters). Refer to each change by its technique and benefit — do not re-list the locations already given in section 3.
 
 **5. Verification & Risks** — the assumed language and framework versions; the test situation before changes (existing tests found / characterization tests added / **none exist → explicit warning that the refactor is unverified and tests should be added first**), how behavior was confirmed unchanged (tests pass / characterization diff clean / manual reasoning), and anything a reviewer must check by hand — public-API or cross-team impact, and any further refactoring deliberately deferred.
 
 Rules for the template:
 - Never mix a behavior change into a refactoring response. If a bug fix or feature is in scope, stop and flag it under Verification & Risks as a separate task — do not silently bundle it in.
-- Keep each section tight and scannable — this is a review aid, not an essay. The refactored code is the centerpiece; the prose around it should be brief.
+- Keep each section tight and scannable — this is a review aid, not an essay. No code goes in the response at all; the applied edits are visible as a diff in the editor, and the five sections exist to explain what the diff cannot — the diagnosis, intent, techniques, and risks.
 - If the request is too large for one safe step, cover only the first unit and list the remaining units under Verification & Risks, rather than attempting everything at once.
 
 ---
